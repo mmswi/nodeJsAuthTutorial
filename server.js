@@ -80,8 +80,26 @@ app.post("/login", (req, res) => {
     })
 });
 
-app.get("/dashboard", (req, res) => {
-    res.render("dashboard");
+app.get("/dashboard", (req, res, next) => {
+    // if there is no session cookie, redirect the user to login
+    if(!(req.session && req.session.userId)) {
+        return res.redirect("/login");
+    }
+
+    // look for the user in the db, by the id from the cookie
+    //  whenever the user refreshes the page, if the cookie matches the id in the db, he no longer has to login
+    User.findById(req.session.userId, (err, user) => {
+        if (err) {
+            return next(err);
+        } else if(!user) {
+            // if there is no user in the db, redirect him to login
+            return res.redirect("/login");
+        } else {
+            console.log("Evrika, correct user!")
+            // if the user exists in the db, let him see the dashboard
+            res.render("dashboard");
+        }
+    })    
 });
 
 app.listen(3000, () => {
