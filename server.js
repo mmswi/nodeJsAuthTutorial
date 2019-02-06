@@ -1,7 +1,17 @@
 const express = require("express");
 const bodyParser = require("body-parser");
+const mongoose = require("mongoose");
+mongoose.connect('mongodb://localhost:27017/nodeAuthTest', {useNewUrlParser: true});
+
 
 const app = express();
+
+const User = mongoose.model("User", new mongoose.Schema({
+    firstName: {type: String, required: true},
+    lastName: {type: String, required: true},
+    email: {type: String, required: true, unique: true},
+    password: {type: String, required: true}
+}));
 
 app.set("view engine", "pug");
 
@@ -18,7 +28,28 @@ app.get("/register", (req, res) => {
 });
 
 app.post("/register", (req, res) => {
-    res.json(req.body);
+
+    let user = new User(req.body);
+
+    console.log("user is: ", user);
+    console.log("req body is: ", req.body)
+
+    user.save((err) => {
+
+        if(err) {
+            console.log("we have error...", err)
+            let error = "No good db";
+
+            if(err.code = 11000) {
+                error = "Email already used";
+            }
+
+            return res.render("register", {error: error})
+        } else {
+            res.redirect("/dashboard");
+        }
+    });
+
 });
 
 app.get("/login", (req, res) => {
