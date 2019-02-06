@@ -1,5 +1,6 @@
 const express = require("express");
 const bodyParser = require("body-parser");
+const sessions = require("client-sessions");
 const mongoose = require("mongoose");
 mongoose.connect('mongodb://localhost:27017/nodeAuthTest', {useNewUrlParser: true});
 
@@ -13,10 +14,19 @@ const User = mongoose.model("User", new mongoose.Schema({
     password: {type: String, required: true}
 }));
 
+// setting the view engine to pug
 app.set("view engine", "pug");
 
+// sing body-parser middleware
 app.use(bodyParser.urlencoded({
     extended: false
+}));
+
+// using cookie-sessions middleware
+app.use(sessions({
+    cookieName: "session",
+    secret: "mySuperSecret", // this should be the same on all servers and not pushed to the repo, like here
+    duration: 30 * 60 * 1000, // 30 mins
 }));
 
 app.get("/", (req, res) => {
@@ -61,6 +71,10 @@ app.post("/login", (req, res) => {
         if(err || !user || req.body.password !== user.password) {
             return res.render("login", {error: "Incorrect email or password"});
         } else {
+            // setting the userId cookie to the user id from mongodb
+            // this cookie will tell the server it's the same user making the requests
+            // 'session' name was declared in the middleware
+            req.session.userId = user._id;
             res.redirect("/dashboard");
         }
     })
