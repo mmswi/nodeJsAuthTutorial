@@ -1,6 +1,7 @@
 const express = require("express");
 const bodyParser = require("body-parser");
 const sessions = require("client-sessions");
+const bcrypt = require("bcryptjs");
 const mongoose = require("mongoose");
 mongoose.connect('mongodb://localhost:27017/nodeAuthTest', {useNewUrlParser: true});
 
@@ -38,8 +39,11 @@ app.get("/register", (req, res) => {
 });
 
 app.post("/register", (req, res) => {
-
-    let user = new User(req.body);
+    // hashing the password and re-assigning it to req.body so it can be stored as hashed in the db
+    // 14 tells bcrypt how strong the hash should be
+    const hash = bcrypt.hashSync(req.body.password, 14);
+    req.body.password = hash;
+    const user = new User(req.body);
 
     console.log("user is: ", user);
     console.log("req body is: ", req.body)
@@ -68,7 +72,8 @@ app.get("/login", (req, res) => {
 
 app.post("/login", (req, res) => {
     User.findOne({email: req.body.email}, (err, user) => {
-        if(err || !user || req.body.password !== user.password) {
+        // using bcrypt to compare the entered text password with the hashed version from the db
+        if(err || !user || bcrypt.compareSync(req.body.password, user.password)) {
             return res.render("login", {error: "Incorrect email or password"});
         } else {
             // setting the userId cookie to the user id from mongodb
