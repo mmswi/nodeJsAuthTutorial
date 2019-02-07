@@ -29,6 +29,9 @@ app.use(sessions({
     cookieName: "session",
     secret: "mySuperSecret", // this should be the same on all servers and not pushed to the repo, like here
     duration: 30 * 60 * 1000, // 30 mins
+    // httpOnly: true, // don't let javascript access cookies
+    // secure: true, // only set cookies over https
+    // ephemeral: true, // destroy cookies when the browser closes
 }));
 
 // middleware that prevents cross site forgery
