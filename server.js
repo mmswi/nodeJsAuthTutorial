@@ -30,6 +30,46 @@ app.use(sessions({
     duration: 30 * 60 * 1000, // 30 mins
 }));
 
+app.use((req, res, next) => {
+    if(!(req.session && req.session.userId)) {
+        // if we don't have a session and session cookie, don't do anything
+        return next();
+    }
+
+    // look for the user in the db, by the id from the cookie
+    //  whenever the user refreshes the page, if the cookie matches the id in the db, he no longer has to login
+    User.findById(req.session.userId, (err, user) => {
+        if (err) {
+            return next(err);
+        } else if(!user) {
+            // if there is no user in the db, redirect him to login
+            return next();
+        } else {
+            // if user found - just store it as an object
+            console.log("Evrika, correct user in middleware!")
+            // don't need to save the password in req and res
+            user.password = undefined;
+
+            // setting the user in the req so we can access it in later calls from here
+            req.user = user;
+            // res.locals allows us to access the user variable in the html templates
+            res.locals.user = user;
+            console.log("req.user found is: ", req.user);
+            next();
+
+        }
+    }) 
+})
+
+function loginRequired(req, res, next) {
+    if (!req.user) {
+        return res.redirect("/login")
+    } else {
+        // go through if you have the user set
+        next();
+    }    
+}
+
 app.get("/", (req, res) => {
     res.render("index");
 });
@@ -73,38 +113,25 @@ app.get("/login", (req, res) => {
 app.post("/login", (req, res) => {
     User.findOne({email: req.body.email}, (err, user) => {
         // using bcrypt to compare the entered text password with the hashed version from the db
-        if(err || !user || bcrypt.compareSync(req.body.password, user.password)) {
+        if(err || !user || !bcrypt.compareSync(req.body.password, user.password)) {
+            console.log("comparing: ", req.body.password, "with ", user.password, "and result is: ", bcrypt.compareSync(req.body.password, user.password))
             return res.render("login", {error: "Incorrect email or password"});
         } else {
             // setting the userId cookie to the user id from mongodb
             // this cookie will tell the server it's the same user making the requests
             // 'session' name was declared in the middleware
+            console.log("comparing: ", req.body.password, "with ", user.password, "and result is: ", bcrypt.compareSync(req.body.password, user.password))
             req.session.userId = user._id;
+            console.log("redirecting to dashboard from login... ", req.session.userId)
             res.redirect("/dashboard");
         }
     })
 });
 
-app.get("/dashboard", (req, res, next) => {
-    // if there is no session cookie, redirect the user to login
-    if(!(req.session && req.session.userId)) {
-        return res.redirect("/login");
-    }
-
-    // look for the user in the db, by the id from the cookie
-    //  whenever the user refreshes the page, if the cookie matches the id in the db, he no longer has to login
-    User.findById(req.session.userId, (err, user) => {
-        if (err) {
-            return next(err);
-        } else if(!user) {
-            // if there is no user in the db, redirect him to login
-            return res.redirect("/login");
-        } else {
-            console.log("Evrika, correct user!")
-            // if the user exists in the db, let him see the dashboard
-            res.render("dashboard");
-        }
-    })    
+app.get("/dashboard", loginRequired, (req, res) => {
+    // because we use the loginRequired middleware, we no longer have to check for session cookies
+    // on each request
+    res.render("dashboard", {userName: res.locals.user.firstName + ' ' + res.locals.user.lastName}); 
 });
 
 app.listen(3000, () => {
