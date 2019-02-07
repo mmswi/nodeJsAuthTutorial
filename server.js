@@ -2,6 +2,7 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const sessions = require("client-sessions");
 const bcrypt = require("bcryptjs");
+const csurf = require("csurf");
 const mongoose = require("mongoose");
 mongoose.connect('mongodb://localhost:27017/nodeAuthTest', {useNewUrlParser: true});
 
@@ -30,6 +31,18 @@ app.use(sessions({
     duration: 30 * 60 * 1000, // 30 mins
 }));
 
+// middleware that prevents cross site forgery
+// IMPORTANT - use this middleware after you use sessions and cookieParser middlewares
+/*
+ Strategy steps: 
+    1. generate a random web token
+    2. store that token in a cookie
+    3. add that token in a hidden input field in the forms that post to our server
+    4. if the cookie is the same as the value in the input field, then the request is to be trusted
+*/
+app.use(csurf());
+
+// middleware that checks for sesion id and stores user in req and res
 app.use((req, res, next) => {
     if(!(req.session && req.session.userId)) {
         // if we don't have a session and session cookie, don't do anything
@@ -61,6 +74,7 @@ app.use((req, res, next) => {
     }) 
 })
 
+// middleware to use on route gets / posts where the user needs to be authenticated
 function loginRequired(req, res, next) {
     if (!req.user) {
         return res.redirect("/login")
@@ -75,7 +89,8 @@ app.get("/", (req, res) => {
 });
 
 app.get("/register", (req, res) => {
-    res.render("register");
+    // using the csurf token
+    res.render("register", {csrfToken: req.csrfToken()});
 });
 
 app.post("/register", (req, res) => {
@@ -107,7 +122,8 @@ app.post("/register", (req, res) => {
 });
 
 app.get("/login", (req, res) => {
-    res.render("login");
+    // using the csurf token
+    res.render("login", {csrfToken: req.csrfToken()});
 });
 
 app.post("/login", (req, res) => {
